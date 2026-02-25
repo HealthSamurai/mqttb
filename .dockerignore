@@ -1,0 +1,6 @@
+node_modules
+*.log
+*.test.ts
+test-*.ts
+spec
+.git

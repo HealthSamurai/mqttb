@@ -1,0 +1,38 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: mqttb-backend-config
+spec:
+  healthCheck:
+    type: HTTP
+    port: 8080
+    requestPath: /health
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: apple-health-cert
+spec:
+  domains:
+    - apple-health.apki.dev
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mqttb-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "apple-health-ip"
+    networking.gke.io/managed-certificates: "apple-health-cert"
+spec:
+  rules:
+    - host: apple-health.apki.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mqttb
+                port:
+                  number: 8080
