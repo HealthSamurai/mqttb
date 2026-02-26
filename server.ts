@@ -156,44 +156,34 @@ server.listen(MQTT_PORT, () => {
 
 // === HTTP Server для REST API ===
 const HTTP_PORT = 8080;
-const BUCKET_NAME = "apple-health-data-atomic";
+const DATA_DIR = "./data";
 
-import { Storage } from "@google-cloud/storage";
-const storage = new Storage();
-const bucket = storage.bucket(BUCKET_NAME);
+import { mkdirSync, readdirSync } from "node:fs";
+mkdirSync(DATA_DIR, { recursive: true });
 
-// Хелпер для листинга файлов
 async function listFiles(): Promise<string[]> {
-  const [files] = await bucket.getFiles({ prefix: "", delimiter: "/" });
-  return files
-    .map((f) => f.name.replace(".json", ""))
+  return readdirSync(DATA_DIR)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => f.replace(".json", ""))
     .sort()
     .reverse();
 }
 
-// Хелпер для сохранения
 async function saveFile(filename: string, data: any): Promise<void> {
-  const file = bucket.file(filename);
-  await file.save(JSON.stringify(data, null, 2), {
-    contentType: "application/json",
-  });
+  await Bun.write(`${DATA_DIR}/${filename}`, JSON.stringify(data, null, 2));
 }
 
-// Хелпер для чтения
 async function readFile(filename: string): Promise<string | null> {
-  const file = bucket.file(filename);
-  const [exists] = await file.exists();
-  if (!exists) return null;
-  const [content] = await file.download();
-  return content.toString();
+  const file = Bun.file(`${DATA_DIR}/${filename}`);
+  if (!(await file.exists())) return null;
+  return file.text();
 }
 
-// Хелпер для удаления
 async function deleteFile(filename: string): Promise<boolean> {
-  const file = bucket.file(filename);
-  const [exists] = await file.exists();
-  if (!exists) return false;
-  await file.delete();
+  const file = Bun.file(`${DATA_DIR}/${filename}`);
+  if (!(await file.exists())) return false;
+  const { unlinkSync } = await import("node:fs");
+  unlinkSync(`${DATA_DIR}/${filename}`);
   return true;
 }
 
@@ -239,7 +229,7 @@ const httpServer = Bun.serve({
           await saveFile(filename, data);
 
           // Логируем
-          console.log(`${new Date().toISOString()} HTTP POST /api/data/${name} -> gs://${BUCKET_NAME}/${filename}`);
+          console.log(`${new Date().toISOString()} HTTP POST /api/data/${name} -> ${filename}`);
           console.log(JSON.stringify(data, null, 2).slice(0, 500));
 
           return Response.json({
@@ -294,7 +284,7 @@ const httpServer = Bun.serve({
         }
 
         await saveFile(filename, data);
-        console.log(`${new Date().toISOString()} HTTP POST /api/health -> gs://${BUCKET_NAME}/${filename}`);
+        console.log(`${new Date().toISOString()} HTTP POST /api/health -> ${filename}`);
         console.log(JSON.stringify(data, null, 2).slice(0, 500));
 
         return Response.json({ success: true, filename: filename.replace(".json", ""), timestamp });

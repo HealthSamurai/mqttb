@@ -12,7 +12,6 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.18.0",
     "aedes": "^0.51.3",
     "mqtt": "^5.15.0"
   }
